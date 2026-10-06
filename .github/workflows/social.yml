@@ -1,0 +1,29 @@
+name: Posts semanales Trek.ia
+
+on:
+  schedule:
+    - cron: "47 6 * * 1"   # lunes ~08:47 Madrid (UTC+2 en verano, 07:47 en invierno)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Solo generar, sin publicar"
+        type: boolean
+        default: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run src/post.ts
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_IG_CHANNEL: ${{ secrets.BUFFER_IG_CHANNEL }}
+          BUFFER_LI_CHANNEL: ${{ secrets.BUFFER_LI_CHANNEL }}
+          OG_URL_TEMPLATE: ${{ vars.OG_URL_TEMPLATE }}
+          IMAGE_URLS: ${{ vars.IMAGE_URLS }}
+          POSTS_PER_RUN: ${{ vars.POSTS_PER_RUN || '3' }}

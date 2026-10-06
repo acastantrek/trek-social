@@ -1,0 +1,13 @@
+{
+  "name": "trekia-social",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "bun run src/setup.ts",
+    "post": "bun run src/post.ts",
+    "dry": "DRY_RUN=1 bun run src/post.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
+  }
+}
