@@ -16,14 +16,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: npm install -g @anthropic-ai/claude-code
       - run: bun run src/post.ts
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
           BUFFER_IG_CHANNEL: ${{ secrets.BUFFER_IG_CHANNEL }}
           BUFFER_LI_CHANNEL: ${{ secrets.BUFFER_LI_CHANNEL }}
           OG_URL_TEMPLATE: ${{ vars.OG_URL_TEMPLATE }}
           IMAGE_URLS: ${{ vars.IMAGE_URLS }}
           POSTS_PER_RUN: ${{ vars.POSTS_PER_RUN || '3' }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'sonnet' }}

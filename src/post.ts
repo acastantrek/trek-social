@@ -1,12 +1,13 @@
 // bun run post   → genera N posts con Claude y los mete en la cola de Buffer (IG + LinkedIn)
 // bun run dry    → solo genera y muestra, no publica nada
-import Anthropic from "@anthropic-ai/sdk";
+// Claude se invoca vía Claude Code CLI (`claude -p`) con tu suscripción:
+//   en local usa tu sesión; en CI, el secret CLAUDE_CODE_OAUTH_TOKEN (sale de `claude setup-token`).
 import { createPost } from "./buffer";
 
 const env = process.env;
 const DRY_RUN = env.DRY_RUN === "1";
 const POSTS_PER_RUN = Number(env.POSTS_PER_RUN ?? 3); // Buffer Free: máx. 10 en cola por canal
-const MODEL = env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
+const MODEL = env.CLAUDE_MODEL ?? "sonnet";
 
 // ── Temas: edítalos a tu gusto. Se rotan por semana para no repetir. ──────────
 const TOPICS = [
@@ -46,34 +47,57 @@ const SYSTEM = `Eres el community manager de Trek.ia (trek-ia.com), consultora B
 Público: dueños y directivos de pymes y empresas de servicios en España.
 Tono: experto, cercano y concreto. Nada de humo, nada de "revolucionario" ni "en la era de la IA".
 Español de España. Usa ejemplos prácticos y cifras solo si son genéricas y razonables (no inventes casos de clientes reales).
+Para cada tema escribe un titular para la imagen, un caption de Instagram y un post de LinkedIn.`;
 
-Devuelve SOLO un JSON válido, sin texto alrededor, con esta forma:
-{"hook": "titular de máx. 8 palabras para la imagen",
- "instagram": "caption de 400-1200 caracteres, saltos de línea, 1-2 emojis máximo, termina con 4-6 hashtags",
- "linkedin": "post de 700-1500 caracteres, primera línea gancho, párrafos cortos, CTA final a trek-ia.com, sin hashtags o máx. 3"}`;
+const SCHEMA = {
+  type: "object",
+  properties: {
+    hook: { type: "string", description: "titular de máx. 8 palabras para la imagen" },
+    instagram: { type: "string", description: "caption de 400-1200 caracteres, saltos de línea, 1-2 emojis máximo, termina con 4-6 hashtags" },
+    linkedin: { type: "string", description: "post de 700-1500 caracteres, primera línea gancho, párrafos cortos, CTA final a trek-ia.com, sin hashtags o máx. 3" },
+  },
+  required: ["hook", "instagram", "linkedin"],
+  additionalProperties: false,
+};
 
-async function generate(claude: Anthropic, topic: string): Promise<Post> {
-  const res = await claude.messages.create({
-    model: MODEL,
-    max_tokens: 2000,
-    system: SYSTEM,
-    messages: [{ role: "user", content: `Tema: ${topic}` }],
-  });
-  const text = res.content.flatMap(b => (b.type === "text" ? [b.text] : [])).join("");
-  const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-  const post = JSON.parse(json) as Post;
-  if (!post.hook || !post.instagram || !post.linkedin) throw new Error(`JSON incompleto: ${text}`);
+async function generate(topic: string): Promise<Post> {
+  const proc = Bun.spawn(
+    [
+      "claude", "-p", `Tema: ${topic}`,
+      "--system-prompt", SYSTEM,
+      "--json-schema", JSON.stringify(SCHEMA),
+      "--output-format", "json",
+      "--model", MODEL,
+      "--tools", "",              // sin herramientas: solo genera texto
+      "--strict-mcp-config",      // ignora servidores MCP configurados en la máquina
+      "--no-session-persistence",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  const [out, err, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (code !== 0) throw new Error(`claude salió con código ${code}: ${err || out}`);
+
+  const res = JSON.parse(out);
+  if (res.is_error) throw new Error(`claude: ${res.result ?? res.subtype}`);
+  const post = res.structured_output as Post | undefined;
+  if (!post?.hook || !post.instagram || !post.linkedin) throw new Error(`JSON incompleto: ${out}`);
   return post;
 }
 
 async function main() {
-  const claude = new Anthropic();
   const topics = weekTopics(POSTS_PER_RUN);
   let failures = 0;
 
   for (const [i, topic] of topics.entries()) {
     console.log(`\n━━ Post ${i + 1}/${topics.length}: ${topic}`);
-    const post = await generate(claude, topic);
+    let post: Post;
+    try {
+      post = await generate(topic);
+    } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); continue; }
     const img = imageFor(post.hook, i);
 
     if (DRY_RUN) {

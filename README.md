@@ -1,29 +1,33 @@
 # trekia-social
 
 Cada lunes, GitHub Actions ejecuta `src/post.ts`:
-1. **Claude** genera 3 posts (versión Instagram + versión LinkedIn) sobre temas de Trek.ia.
+1. **Claude** (vía Claude Code CLI, con tu suscripción Pro/Max) genera 3 posts (versión Instagram + versión LinkedIn) sobre temas de Trek.ia.
 2. Los mete en la **cola de Buffer**, y Buffer los publica en los horarios que tengas configurados.
 
-Coste: Buffer Free + GitHub Actions = 0 €. Solo pagas la API de Claude, que son céntimos al mes.
+Coste: Buffer Free + GitHub Actions + tu suscripción de Claude = 0 € extra. Cada run consume un poco de los límites de uso de tu plan.
 
 ## Puesta en marcha
 
 1. **Buffer** (plan Free): conecta la página de empresa de LinkedIn e Instagram Business/Creator.
    En cada canal, ve a *Settings → Posting Schedule* y elige días y horas (por ejemplo, L-X-V a las 9:00).
 2. **API key de Buffer**: https://publish.buffer.com/settings/api
-3. **API key de Claude**: https://console.anthropic.com
+3. **Token de Claude Code** (desde tu terminal, con Claude Code instalado y tu sesión iniciada):
+   ```bash
+   claude setup-token
+   ```
+   Copia el token que imprime (`sk-ant-oat...`); es el secret `CLAUDE_CODE_OAUTH_TOKEN`.
 4. Saca los IDs de canal:
    ```bash
    bun install
    BUFFER_API_KEY=xxx bun run setup
    ```
-5. Prueba sin publicar:
+5. Prueba sin publicar (en local usa tu sesión de Claude Code, no hace falta token):
    ```bash
-   ANTHROPIC_API_KEY=xxx OG_URL_TEMPLATE="https://trek-ia.com/api/og?title={title}" bun run dry
+   OG_URL_TEMPLATE="https://trek-ia.com/api/og?title={title}" bun run dry
    ```
 6. Sube el repo a GitHub y añade en *Settings → Secrets and variables → Actions*:
-   - **Secrets:** `ANTHROPIC_API_KEY`, `BUFFER_API_KEY`, `BUFFER_IG_CHANNEL`, `BUFFER_LI_CHANNEL`
-   - **Variables:** `OG_URL_TEMPLATE` **o** `IMAGE_URLS` (URLs públicas separadas por comas), y opcionalmente `POSTS_PER_RUN`
+   - **Secrets:** `CLAUDE_CODE_OAUTH_TOKEN`, `BUFFER_API_KEY`, `BUFFER_IG_CHANNEL`, `BUFFER_LI_CHANNEL`
+   - **Variables:** `OG_URL_TEMPLATE` **o** `IMAGE_URLS` (URLs públicas separadas por comas), y opcionalmente `POSTS_PER_RUN` y `CLAUDE_MODEL` (por defecto `sonnet`)
 7. Lanza el workflow a mano desde *Actions → Run workflow* con `dry_run` marcado para ver el resultado en los logs. Cuando te guste, desmárcalo.
 
 ## Notas
