@@ -3,6 +3,7 @@
 // Claude se invoca vía Claude Code CLI (`claude -p`) con tu suscripción:
 //   en local usa tu sesión; en CI, el secret CLAUDE_CODE_OAUTH_TOKEN (sale de `claude setup-token`).
 import { createPost } from "./buffer";
+import { renderCard } from "./image";
 
 const env = process.env;
 const DRY_RUN = env.DRY_RUN === "1";
@@ -28,17 +29,31 @@ function weekTopics(n: number) {
   return Array.from({ length: n }, (_, i) => TOPICS[(week * n + i) % TOPICS.length]);
 }
 
-// ── Imagen para Instagram (obligatoria). Dos opciones vía env: ───────────────
-//   OG_URL_TEMPLATE="https://trek-ia.com/api/og?title={title}"  → tarjeta generada con el titular
-//   IMAGE_URLS="https://.../1.jpg,https://.../2.jpg"           → rota imágenes de tu banco
-function imageFor(hook: string, i: number): string | undefined {
-  if (env.OG_URL_TEMPLATE) return env.OG_URL_TEMPLATE.replace("{title}", encodeURIComponent(hook));
-  const list = (env.IMAGE_URLS ?? "").split(",").map(s => s.trim()).filter(Boolean);
-  if (list.length) {
-    const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-    return list[(week * POSTS_PER_RUN + i) % list.length];
+// ── Imagen: tarjeta generada con el titular (src/image.ts). Se guarda en media/ y se
+// publica en el propio repo (público), así Buffer la descarga de raw.githubusercontent.com.
+const REPO = env.GITHUB_REPOSITORY ?? "acastantrek/trek-social";
+
+function git(...args: string[]) {
+  const r = Bun.spawnSync(["git", ...args], { stdout: "pipe", stderr: "pipe" });
+  if (r.exitCode !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr.toString() || r.stdout.toString()}`);
+  return r.stdout.toString().trim();
+}
+
+// Sube las imágenes al repo y devuelve el commit, para URLs inmutables
+function pushImages(files: string[]): string {
+  git("add", ...files);
+  git("commit", "-m", `Imágenes de posts ${files.map(f => f.split("/").pop()).join(", ")}`);
+  git("push");
+  return git("rev-parse", "HEAD");
+}
+
+// raw.githubusercontent.com puede tardar unos segundos en servir un commit recién subido
+async function waitPublic(url: string) {
+  for (let i = 0; i < 10; i++) {
+    if ((await fetch(url, { method: "HEAD" })).ok) return;
+    await Bun.sleep(3000);
   }
-  return undefined;
+  throw new Error(`La imagen no es accesible: ${url}`);
 }
 
 type Post = { hook: string; instagram: string; linkedin: string };
@@ -90,20 +105,40 @@ async function generate(topic: string): Promise<Post> {
 
 async function main() {
   const topics = weekTopics(POSTS_PER_RUN);
+  const date = new Date().toISOString().slice(0, 10);
   let failures = 0;
 
+  // 1) Generar textos e imágenes
+  const posts: { post: Post; file: string }[] = [];
   for (const [i, topic] of topics.entries()) {
-    console.log(`\n━━ Post ${i + 1}/${topics.length}: ${topic}`);
-    let post: Post;
+    console.log(`
+━━ Post ${i + 1}/${topics.length}: ${topic}`);
     try {
-      post = await generate(topic);
-    } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); continue; }
-    const img = imageFor(post.hook, i);
+      const post = await generate(topic);
+      const file = `media/${date}-${i + 1}.png`;
+      await Bun.write(file, await renderCard(post.hook));
+      console.log({ ...post, image: file });
+      posts.push({ post, file });
+    } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); }
+  }
 
-    if (DRY_RUN) {
-      console.log({ ...post, image: img ?? "(sin imagen → IG se saltaría)" });
-      continue;
-    }
+  if (DRY_RUN || !posts.length) {
+    if (failures) process.exit(1);
+    return;
+  }
+
+  // 2) Publicar las imágenes en el repo
+  const sha = pushImages(posts.map(p => p.file));
+  console.log(`
+✔ Imágenes subidas (commit ${sha.slice(0, 7)})`);
+
+  // 3) Encolar en Buffer
+  for (const { post, file } of posts) {
+    const img = `https://raw.githubusercontent.com/${REPO}/${sha}/${file}`;
+    console.log(`
+━━ ${post.hook}
+   ${img}`);
+    try { await waitPublic(img); } catch (e) { failures++; console.error("✘", (e as Error).message); continue; }
 
     if (env.BUFFER_LI_CHANNEL) {
       try {
@@ -113,14 +148,10 @@ async function main() {
     }
 
     if (env.BUFFER_IG_CHANNEL) {
-      if (!img) {
-        console.warn("⚠ Instagram saltado: define OG_URL_TEMPLATE o IMAGE_URLS (IG exige imagen)");
-      } else {
-        try {
-          const r = await createPost({ channelId: env.BUFFER_IG_CHANNEL, text: post.instagram, imageUrl: img, instagram: true });
-          console.log(`✔ Instagram en cola → ${r.dueAt}`);
-        } catch (e) { failures++; console.error("✘ Instagram:", (e as Error).message); }
-      }
+      try {
+        const r = await createPost({ channelId: env.BUFFER_IG_CHANNEL, text: post.instagram, imageUrl: img, instagram: true });
+        console.log(`✔ Instagram en cola → ${r.dueAt}`);
+      } catch (e) { failures++; console.error("✘ Instagram:", (e as Error).message); }
     }
   }
 

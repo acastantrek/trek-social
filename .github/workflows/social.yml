@@ -10,13 +10,20 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write   # para subir las imágenes generadas a media/
+
 jobs:
   post:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
       - run: npm install -g @anthropic-ai/claude-code
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
       - run: bun run src/post.ts
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
@@ -24,7 +31,11 @@ jobs:
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
           BUFFER_IG_CHANNEL: ${{ secrets.BUFFER_IG_CHANNEL }}
           BUFFER_LI_CHANNEL: ${{ secrets.BUFFER_LI_CHANNEL }}
-          OG_URL_TEMPLATE: ${{ vars.OG_URL_TEMPLATE }}
-          IMAGE_URLS: ${{ vars.IMAGE_URLS }}
           POSTS_PER_RUN: ${{ vars.POSTS_PER_RUN || '3' }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'sonnet' }}
+      - uses: actions/upload-artifact@v4   # en dry run, descarga las imágenes desde la página del run
+        if: always()
+        with:
+          name: imagenes
+          path: media/*.png
+          if-no-files-found: ignore
