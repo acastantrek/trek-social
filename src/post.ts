@@ -7,6 +7,7 @@ import { renderCard } from "./image";
 
 const env = process.env;
 const DRY_RUN = env.DRY_RUN === "1";
+const SHARE_NOW = env.SHARE_NOW === "1"; // publica al momento en vez de encolar
 const POSTS_PER_RUN = Number(env.POSTS_PER_RUN ?? 3); // Buffer Free: máx. 10 en cola por canal
 const MODEL = env.CLAUDE_MODEL ?? "sonnet";
 
@@ -142,15 +143,15 @@ async function main() {
 
     if (env.BUFFER_LI_CHANNEL) {
       try {
-        const r = await createPost({ channelId: env.BUFFER_LI_CHANNEL, text: post.linkedin, imageUrl: img });
-        console.log(`✔ LinkedIn en cola → ${r.dueAt}`);
+        const r = await createPost({ channelId: env.BUFFER_LI_CHANNEL, text: post.linkedin, imageUrl: img, shareNow: SHARE_NOW });
+        console.log(`✔ LinkedIn ${SHARE_NOW ? "publicado" : "en cola"} → ${r.dueAt}`);
       } catch (e) { failures++; console.error("✘ LinkedIn:", (e as Error).message); }
     }
 
     if (env.BUFFER_IG_CHANNEL) {
       try {
-        const r = await createPost({ channelId: env.BUFFER_IG_CHANNEL, text: post.instagram, imageUrl: img, instagram: true });
-        console.log(`✔ Instagram en cola → ${r.dueAt}`);
+        const r = await createPost({ channelId: env.BUFFER_IG_CHANNEL, text: post.instagram, imageUrl: img, instagram: true, shareNow: SHARE_NOW });
+        console.log(`✔ Instagram ${SHARE_NOW ? "publicado" : "en cola"} → ${r.dueAt}`);
       } catch (e) { failures++; console.error("✘ Instagram:", (e as Error).message); }
     }
   }

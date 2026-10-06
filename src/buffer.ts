@@ -21,14 +21,15 @@ type CreatePostInput = {
   text: string;
   imageUrl?: string;
   instagram?: boolean;
+  shareNow?: boolean;
 };
 
-export async function createPost({ channelId, text, imageUrl, instagram }: CreatePostInput) {
+export async function createPost({ channelId, text, imageUrl, instagram, shareNow }: CreatePostInput) {
   const input: Record<string, unknown> = {
     channelId,
     text,
     schedulingType: "automatic",
-    mode: "addToQueue", // usa los horarios que configures en Buffer
+    mode: shareNow ? "shareNow" : "addToQueue", // addToQueue usa los horarios que configures en Buffer
   };
   if (imageUrl) input.assets = [{ image: { url: imageUrl } }];
   if (instagram) {

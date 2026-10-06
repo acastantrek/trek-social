@@ -9,6 +9,14 @@ on:
         description: "Solo generar, sin publicar"
         type: boolean
         default: true
+      share_now:
+        description: "Publicar ya (en vez de encolar en Buffer)"
+        type: boolean
+        default: false
+      posts:
+        description: "Número de posts (vacío = POSTS_PER_RUN)"
+        type: string
+        default: ""
 
 permissions:
   contents: write   # para subir las imágenes generadas a media/
@@ -27,11 +35,12 @@ jobs:
       - run: bun run src/post.ts
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          SHARE_NOW: ${{ inputs.share_now && '1' || '0' }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
           BUFFER_IG_CHANNEL: ${{ secrets.BUFFER_IG_CHANNEL }}
           BUFFER_LI_CHANNEL: ${{ secrets.BUFFER_LI_CHANNEL }}
-          POSTS_PER_RUN: ${{ vars.POSTS_PER_RUN || '3' }}
+          POSTS_PER_RUN: ${{ inputs.posts || vars.POSTS_PER_RUN || '3' }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'sonnet' }}
       - uses: actions/upload-artifact@v4   # en dry run, descarga las imágenes desde la página del run
         if: always()
