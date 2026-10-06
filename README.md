@@ -10,7 +10,7 @@ Coste: Buffer Free + GitHub Actions + tu suscripción de Claude = 0 € extra. C
 ## Puesta en marcha
 
 1. **Buffer** (plan Free): conecta la página de empresa de LinkedIn e Instagram Business/Creator.
-   En cada canal, ve a *Settings → Posting Schedule* y elige días y horas (por ejemplo, L-X-V a las 9:00).
+   En cada canal, ve a *Settings → Posting Schedule* y elige días y horas (ahora: L-X-V a las 9:00, hora de Madrid).
 2. **API key de Buffer**: https://publish.buffer.com/settings/api
 3. **Token de Claude Code** (desde tu terminal, con Claude Code instalado y tu sesión iniciada):
    ```bash
