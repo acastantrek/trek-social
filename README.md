@@ -36,4 +36,5 @@ Coste: Buffer Free + GitHub Actions + tu suscripción de Claude = 0 € extra. C
 - El diseño de la tarjeta (colores, logo en `assets/logo.png`, tipografía Manrope) está en `src/image.ts`.
 - **Buffer Free** permite 10 posts en cola por canal. Con 3 por semana vas sobrado.
 - **Para revisar antes de publicar**, pausa la cola en Buffer: los posts se quedan esperando hasta que la reanudes, y mientras tanto puedes editarlos o borrarlos desde la app.
-- Los temas están en `TOPICS` dentro de `src/post.ts`, y el tono en `SYSTEM`.
+- Los temas están en `TOPICS` dentro de `src/post.ts`, y el tono en `SYSTEM`. Se usan en orden; el siguiente está en `state.json` (solo avanza al publicar, no en dry run). Edítalo para saltar a otro tema.
+- La versión de Claude Code está fijada en el workflow; súbela a mano cuando quieras actualizar.

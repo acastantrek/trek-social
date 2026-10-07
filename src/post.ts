@@ -2,16 +2,34 @@
 // bun run dry    → solo genera y muestra, no publica nada
 // Claude se invoca vía Claude Code CLI (`claude -p`) con tu suscripción:
 //   en local usa tu sesión; en CI, el secret CLAUDE_CODE_OAUTH_TOKEN (sale de `claude setup-token`).
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { createPost } from "./buffer";
 import { renderCard } from "./image";
 
 const env = process.env;
 const DRY_RUN = env.DRY_RUN === "1";
 const SHARE_NOW = env.SHARE_NOW === "1"; // publica al momento en vez de encolar
-const POSTS_PER_RUN = Number(env.POSTS_PER_RUN ?? 3); // Buffer Free: máx. 10 en cola por canal
+const POSTS_PER_RUN = Number(env.POSTS_PER_RUN || 3); // Buffer Free: máx. 10 en cola por canal
 const MODEL = env.CLAUDE_MODEL ?? "sonnet";
 
-// ── Temas: edítalos a tu gusto. Se rotan por semana para no repetir. ──────────
+// Fallar antes de gastar cuota de Claude o subir imágenes que no se van a usar
+function checkConfig() {
+  const errors: string[] = [];
+  if (!Number.isInteger(POSTS_PER_RUN) || POSTS_PER_RUN < 1 || POSTS_PER_RUN > 10) {
+    errors.push(`POSTS_PER_RUN debe ser un entero entre 1 y 10 (es "${env.POSTS_PER_RUN}")`);
+  }
+  if (!DRY_RUN) {
+    if (!env.BUFFER_API_KEY) errors.push("Falta BUFFER_API_KEY");
+    if (!env.BUFFER_LI_CHANNEL && !env.BUFFER_IG_CHANNEL) errors.push("Falta BUFFER_LI_CHANNEL o BUFFER_IG_CHANNEL");
+  }
+  if (errors.length) {
+    for (const e of errors) console.error("✘", e);
+    process.exit(1);
+  }
+}
+
+// ── Temas: edítalos a tu gusto. Se usan en orden; el siguiente se guarda en state.json. ──
 const TOPICS = [
   "caso práctico: automatizar la captación y cualificación de leads con IA",
   "errores típicos al implantar IA en una pyme (y cómo evitarlos)",
@@ -25,9 +43,17 @@ const TOPICS = [
   "mitos sobre la IA en empresas B2B",
 ];
 
-function weekTopics(n: number) {
-  const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-  return Array.from({ length: n }, (_, i) => TOPICS[(week * n + i) % TOPICS.length]);
+// Solo avanza cuando se publica de verdad, así los dry runs y los runs manuales no repiten ni saltan temas
+const STATE_FILE = "state.json";
+type State = { nextTopic: number };
+
+async function readState(): Promise<State> {
+  const f = Bun.file(STATE_FILE);
+  return (await f.exists()) ? await f.json() : { nextTopic: 0 };
+}
+
+function pickTopics(state: State, n: number) {
+  return Array.from({ length: n }, (_, i) => TOPICS[(state.nextTopic + i) % TOPICS.length]);
 }
 
 // ── Imagen: tarjeta generada con el titular (src/image.ts). Se guarda en media/ y se
@@ -40,10 +66,11 @@ function git(...args: string[]) {
   return r.stdout.toString().trim();
 }
 
-// Sube las imágenes al repo y devuelve el commit, para URLs inmutables
+// Sube las imágenes (y el estado de los temas) al repo y devuelve el commit, para URLs inmutables
 function pushImages(files: string[]): string {
-  git("add", ...files);
+  git("add", STATE_FILE, ...files);
   git("commit", "-m", `Imágenes de posts ${files.map(f => f.split("/").pop()).join(", ")}`);
+  git("pull", "--rebase");
   git("push");
   return git("rev-parse", "HEAD");
 }
@@ -76,10 +103,19 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
+// En Windows `claude` es un shim .cmd y cmd.exe corta los argumentos multilínea (SYSTEM),
+// perdiendo el resto de flags; se llama directamente al .exe al que apunta el shim.
+function claudeBin() {
+  const shim = Bun.which("claude");
+  if (process.platform !== "win32" || !shim) return "claude";
+  const exe = join(dirname(shim), "node_modules/@anthropic-ai/claude-code/bin/claude.exe");
+  return existsSync(exe) ? exe : "claude";
+}
+
 async function generate(topic: string): Promise<Post> {
   const proc = Bun.spawn(
     [
-      "claude", "-p", `Tema: ${topic}`,
+      claudeBin(), "-p", `Tema: ${topic}`,
       "--system-prompt", SYSTEM,
       "--json-schema", JSON.stringify(SCHEMA),
       "--output-format", "json",
@@ -105,8 +141,10 @@ async function generate(topic: string): Promise<Post> {
 }
 
 async function main() {
-  const topics = weekTopics(POSTS_PER_RUN);
-  const date = new Date().toISOString().slice(0, 10);
+  checkConfig();
+  const state = await readState();
+  const topics = pickTopics(state, POSTS_PER_RUN);
+  const date = env.RUN_DATE || new Date().toISOString().slice(0, 10); // RUN_DATE lo fija el workflow
   let failures = 0;
 
   // 1) Generar textos e imágenes
@@ -128,7 +166,8 @@ async function main() {
     return;
   }
 
-  // 2) Publicar las imágenes en el repo
+  // 2) Publicar las imágenes en el repo y avanzar la rotación de temas
+  await Bun.write(STATE_FILE, JSON.stringify({ nextTopic: (state.nextTopic + topics.length) % TOPICS.length }, null, 2) + "\n");
   const sha = pushImages(posts.map(p => p.file));
   console.log(`
 ✔ Imágenes subidas (commit ${sha.slice(0, 7)})`);

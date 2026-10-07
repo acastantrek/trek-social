@@ -28,7 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: npm install -g @anthropic-ai/claude-code
+      - run: npm install -g @anthropic-ai/claude-code@2.1.292   # versión fija: post.ts depende de --json-schema y structured_output
+      - run: echo "RUN_DATE=$(date -u +%F)" >> "$GITHUB_ENV"     # mismo día para los nombres de las imágenes y el artifact
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
@@ -46,5 +47,5 @@ jobs:
         if: always()
         with:
           name: imagenes
-          path: media/*.png
+          path: media/${{ env.RUN_DATE }}-*.png
           if-no-files-found: ignore
