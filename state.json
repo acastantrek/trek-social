@@ -1,3 +1,10 @@
 {
-  "nextTopic": 2
+  "nextTopic": 2,
+  "history": [
+    {
+      "date": "2026-10-06",
+      "topic": "errores típicos al implantar IA en una pyme (y cómo evitarlos)",
+      "hook": "5 errores al meter IA en tu pyme"
+    }
+  ]
 }

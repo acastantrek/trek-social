@@ -41,15 +41,36 @@ const TOPICS = [
   "checklist antes de contratar una consultora de IA",
   "automatizar informes y reporting con IA",
   "mitos sobre la IA en empresas B2B",
+  "cómo elegir el primer proceso a automatizar en tu empresa",
+  "IA y protección de datos (RGPD): qué tener en cuenta antes de empezar",
+  "automatizar la gestión de facturas y documentos con IA",
+  "cómo formar a tu equipo para trabajar con IA sin resistencias",
+  "prueba piloto de IA: cómo plantearla para que salga bien",
+  "chatbots que funcionan vs. chatbots que frustran al cliente",
+  "integrar la IA con tu CRM y tu ERP sin cambiar de herramientas",
+  "cuánto cuesta de verdad un proyecto de IA en una pyme",
+  "IA para el equipo comercial: preparar reuniones, propuestas y seguimientos",
+  "señales de que tu empresa está lista (o no) para automatizar",
 ];
 
-// Solo avanza cuando se publica de verdad, así los dry runs y los runs manuales no repiten ni saltan temas
+// Solo avanza cuando se publica de verdad, así los dry runs y los runs manuales no repiten ni saltan temas.
+// `history` guarda los titulares publicados para que Claude no repita enfoques.
 const STATE_FILE = "state.json";
-type State = { nextTopic: number };
+const HISTORY_SIZE = 60;
+type Published = { date: string; topic: string; hook: string };
+type State = { nextTopic: number; history: Published[] };
 
 async function readState(): Promise<State> {
   const f = Bun.file(STATE_FILE);
-  return (await f.exists()) ? await f.json() : { nextTopic: 0 };
+  const s = (await f.exists()) ? await f.json() : {};
+  return { nextTopic: s.nextTopic ?? 0, history: s.history ?? [] };
+}
+
+// Titulares anteriores del mismo tema + los más recientes de cualquier tema
+function previousHooks(history: Published[], topic: string) {
+  const sameTopic = history.filter(h => h.topic === topic).map(h => h.hook);
+  const recent = history.slice(-9).map(h => h.hook);
+  return [...new Set([...sameTopic, ...recent])];
 }
 
 function pickTopics(state: State, n: number) {
@@ -112,10 +133,13 @@ function claudeBin() {
   return existsSync(exe) ? exe : "claude";
 }
 
-async function generate(topic: string): Promise<Post> {
+async function generate(topic: string, avoid: string[]): Promise<Post> {
+  const prompt = avoid.length
+    ? `Tema: ${topic}\n\nYa publicamos estos titulares; busca un enfoque, ejemplo y titular distintos:\n${avoid.map(h => `- ${h}`).join("\n")}`
+    : `Tema: ${topic}`;
   const proc = Bun.spawn(
     [
-      claudeBin(), "-p", `Tema: ${topic}`,
+      claudeBin(), "-p", prompt,
       "--system-prompt", SYSTEM,
       "--json-schema", JSON.stringify(SCHEMA),
       "--output-format", "json",
@@ -148,16 +172,16 @@ async function main() {
   let failures = 0;
 
   // 1) Generar textos e imágenes
-  const posts: { post: Post; file: string }[] = [];
+  const posts: { post: Post; file: string; topic: string }[] = [];
   for (const [i, topic] of topics.entries()) {
     console.log(`
 ━━ Post ${i + 1}/${topics.length}: ${topic}`);
     try {
-      const post = await generate(topic);
+      const post = await generate(topic, previousHooks(state.history, topic));
       const file = `media/${date}-${i + 1}.png`;
       await Bun.write(file, await renderCard(post.hook));
       console.log({ ...post, image: file });
-      posts.push({ post, file });
+      posts.push({ post, file, topic });
     } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); }
   }
 
@@ -167,7 +191,11 @@ async function main() {
   }
 
   // 2) Publicar las imágenes en el repo y avanzar la rotación de temas
-  await Bun.write(STATE_FILE, JSON.stringify({ nextTopic: (state.nextTopic + topics.length) % TOPICS.length }, null, 2) + "\n");
+  const next: State = {
+    nextTopic: (state.nextTopic + topics.length) % TOPICS.length,
+    history: [...state.history, ...posts.map(p => ({ date, topic: p.topic, hook: p.post.hook }))].slice(-HISTORY_SIZE),
+  };
+  await Bun.write(STATE_FILE, JSON.stringify(next, null, 2) + "\n");
   const sha = pushImages(posts.map(p => p.file));
   console.log(`
 ✔ Imágenes subidas (commit ${sha.slice(0, 7)})`);
