@@ -1,10 +1,25 @@
 {
-  "nextTopic": 2,
+  "nextTopic": 5,
   "history": [
     {
       "date": "2026-10-06",
       "topic": "errores típicos al implantar IA en una pyme (y cómo evitarlos)",
       "hook": "5 errores al meter IA en tu pyme"
+    },
+    {
+      "date": "2026-10-07",
+      "topic": "agentes de IA vs. automatizaciones clásicas tipo n8n/Zapier: cuándo usar cada uno",
+      "hook": "Regla fija o criterio: elige bien"
+    },
+    {
+      "date": "2026-10-07",
+      "topic": "cómo calcular el ROI de un proyecto de automatización",
+      "hook": "Tu automatización se paga en meses, no en años"
+    },
+    {
+      "date": "2026-10-07",
+      "topic": "tareas repetitivas de oficina que hoy se pueden automatizar en una semana",
+      "hook": "Lo que tu equipo copia a mano, ya no"
     }
   ]
 }
