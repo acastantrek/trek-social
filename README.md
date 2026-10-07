@@ -1,6 +1,6 @@
 # trekia-social
 
-Cada lunes, GitHub Actions ejecuta `src/post.ts`:
+Cada miércoles, GitHub Actions ejecuta `src/post.ts`:
 1. **Claude** (vía Claude Code CLI, con tu suscripción Pro/Max) genera 3 posts (versión Instagram + versión LinkedIn) sobre temas de Trek.ia.
 2. Genera una **tarjeta PNG** con el titular para cada post (`src/image.ts`, estilo de la web) y la sube a `media/` en este repo.
 3. Los mete en la **cola de Buffer**, y Buffer los publica en los horarios que tengas configurados.
@@ -10,7 +10,7 @@ Coste: Buffer Free + GitHub Actions + tu suscripción de Claude = 0 € extra. C
 ## Puesta en marcha
 
 1. **Buffer** (plan Free): conecta la página de empresa de LinkedIn e Instagram Business/Creator.
-   En cada canal, ve a *Settings → Posting Schedule* y elige días y horas (ahora: L-X-V a las 9:00, hora de Madrid).
+   En cada canal, ve a *Settings → Posting Schedule* y elige días y horas (ahora: L-X-V a las 15:00, hora de Madrid).
 2. **API key de Buffer**: https://publish.buffer.com/settings/api
 3. **Token de Claude Code** (desde tu terminal, con Claude Code instalado y tu sesión iniciada):
    ```bash

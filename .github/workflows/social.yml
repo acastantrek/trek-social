@@ -2,7 +2,7 @@ name: Posts semanales Trek.ia
 
 on:
   schedule:
-    - cron: "13 5 * * 1"   # lunes ~07:13 Madrid (UTC+2 en verano, 06:13 en invierno); margen antes del hueco de las 9:00 en Buffer
+    - cron: "13 5 * * 3"   # miércoles ~07:13 Madrid (UTC+2 en verano, 06:13 en invierno); encola X-V-L antes del hueco de las 15:00 en Buffer
   workflow_dispatch:
     inputs:
       dry_run:
