@@ -2,7 +2,7 @@
 
 Cada miércoles, GitHub Actions ejecuta `src/post.ts`:
 1. **Claude** (vía Claude Code CLI, con tu suscripción Pro/Max) genera 3 posts (versión Instagram + versión LinkedIn) sobre temas de Trek.ia.
-2. Genera una **tarjeta PNG** con el titular para cada post (`src/image.ts`, estilo de la web) y la sube a `media/` en este repo.
+2. Genera una **tarjeta PNG** con el titular para cada post (`src/image.ts`, estilo de la web) y la sube a `media/` en este repo. El 3.º post (el del viernes) lleva de fondo una **foto de personas** de `assets/personas/` (rota una por semana; añade más descargándolas de Unsplash).
 3. Los mete en la **cola de Buffer**, y Buffer los publica en los horarios que tengas configurados.
 
 Coste: Buffer Free + GitHub Actions + tu suscripción de Claude = 0 € extra. Cada run consume un poco de los límites de uso de tu plan.

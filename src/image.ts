@@ -45,3 +45,52 @@ export async function renderCard(hook: string): Promise<Uint8Array> {
   const svg = await satori(tree as any, { width: W, height: H, fonts: await fonts });
   return new Resvg(svg, { fitTo: { mode: "width", value: W } }).render().asPng();
 }
+
+// Variante clara con foto de personas de fondo (post del viernes), al estilo de los anuncios de la web.
+// La última palabra del titular va en azul.
+export async function renderPhotoCard(hook: string, subtitle: string, photo: Uint8Array): Promise<Uint8Array> {
+  const size = hook.length <= 24 ? 108 : hook.length <= 36 ? 92 : 80;
+  const words = hook.trim().split(/\s+/);
+  const last = words.pop()!;
+  const blue = "#1557ff";
+  const bg = `data:image/jpeg;base64,${Buffer.from(photo).toString("base64")}`;
+
+  const tree = h("div", {
+    width: W, height: H, display: "flex", position: "relative", fontFamily: "Manrope", color: "#0b0f1a",
+    backgroundColor: "#f4efe8",
+  }, [
+    // la foto baja 320px: la parte de arriba queda bajo el velo y las personas en la mitad inferior
+    h("img", { position: "absolute", top: 320, left: 0, width: W, height: H, objectFit: "cover" }, undefined, { src: bg }),
+    // velo claro arriba para que el texto se lea, desaparece hacia la foto
+    h("div", {
+      position: "absolute", top: 0, left: 0, width: W, height: H,
+      backgroundImage: "linear-gradient(180deg, rgba(248,245,240,1) 0%, rgba(248,245,240,1) 26%, rgba(248,245,240,0.94) 44%, rgba(248,245,240,0.5) 54%, rgba(248,245,240,0) 64%)",
+    }),
+    h("div", {
+      position: "absolute", top: 0, left: 0, width: W, height: H, display: "flex", flexDirection: "column",
+      justifyContent: "space-between", padding: "80px 88px 72px",
+    }, [
+      h("div", { display: "flex", flexDirection: "column" }, [
+        h("div", { display: "flex", justifyContent: "flex-end", fontSize: 50, fontWeight: 800, letterSpacing: 1 }, [
+          h("span", {}, "TREK"),
+          h("span", { color: blue }, ".IA"),
+        ]),
+        h("div", { display: "flex", flexDirection: "column", gap: 30, marginTop: 44 }, [
+          h("div", { display: "flex", flexWrap: "wrap", fontSize: size, fontWeight: 800, lineHeight: 1.08, letterSpacing: -3 },
+            [...words, last].map((w, i) => h("span", { marginRight: size * 0.26, color: i === words.length ? blue : undefined }, w))),
+          h("div", { width: 90, height: 6, borderRadius: 3, backgroundColor: blue }),
+          h("div", { fontSize: 34, fontWeight: 500, lineHeight: 1.35, color: "#2a2f3a", maxWidth: 760 }, subtitle),
+        ]),
+      ]),
+      h("div", { display: "flex" }, [
+        h("div", {
+          display: "flex", padding: "18px 34px", borderRadius: 18, fontSize: 32, fontWeight: 700, color: blue,
+          backgroundColor: "rgba(255,255,255,0.88)",
+        }, "trek-ia.com"),
+      ]),
+    ]),
+  ]);
+
+  const svg = await satori(tree as any, { width: W, height: H, fonts: await fonts });
+  return new Resvg(svg, { fitTo: { mode: "width", value: W } }).render().asPng();
+}

@@ -5,13 +5,15 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createPost } from "./buffer";
-import { renderCard } from "./image";
+import { renderCard, renderPhotoCard } from "./image";
+import { pickPhoto } from "./photos";
 
 const env = process.env;
 const DRY_RUN = env.DRY_RUN === "1";
 const SHARE_NOW = env.SHARE_NOW === "1"; // publica al momento en vez de encolar
 const POSTS_PER_RUN = Number(env.POSTS_PER_RUN || 3); // Buffer Free: máx. 10 en cola por canal
 const MODEL = env.CLAUDE_MODEL ?? "sonnet";
+const PHOTO_POST = 3; // el 3.º de la tanda (viernes con L-X-V) lleva foto de personas de assets/personas/
 
 // Fallar antes de gastar cuota de Claude o subir imágenes que no se van a usar
 function checkConfig() {
@@ -105,22 +107,23 @@ async function waitPublic(url: string) {
   throw new Error(`La imagen no es accesible: ${url}`);
 }
 
-type Post = { hook: string; instagram: string; linkedin: string };
+type Post = { hook: string; subtitle: string; instagram: string; linkedin: string };
 
 const SYSTEM = `Eres el community manager de Trek.ia (trek-ia.com), consultora B2B de IA y automatización.
 Público: dueños y directivos de pymes y empresas de servicios en España.
 Tono: experto, cercano y concreto. Nada de humo, nada de "revolucionario" ni "en la era de la IA".
 Español de España. Usa ejemplos prácticos y cifras solo si son genéricas y razonables (no inventes casos de clientes reales).
-Para cada tema escribe un titular para la imagen, un caption de Instagram y un post de LinkedIn.`;
+Para cada tema escribe un titular y un subtítulo para la imagen, un caption de Instagram y un post de LinkedIn.`;
 
 const SCHEMA = {
   type: "object",
   properties: {
     hook: { type: "string", description: "titular de máx. 8 palabras para la imagen" },
+    subtitle: { type: "string", description: "subtítulo de la imagen, 1 frase de máx. 15 palabras que amplía el titular" },
     instagram: { type: "string", description: "caption de 400-1200 caracteres, saltos de línea, 1-2 emojis máximo, termina con 4-6 hashtags" },
     linkedin: { type: "string", description: "post de 700-1500 caracteres, primera línea gancho, párrafos cortos, CTA final a trek-ia.com, sin hashtags o máx. 3" },
   },
-  required: ["hook", "instagram", "linkedin"],
+  required: ["hook", "subtitle", "instagram", "linkedin"],
   additionalProperties: false,
 };
 
@@ -164,6 +167,18 @@ async function generate(topic: string, avoid: string[]): Promise<Post> {
   return post;
 }
 
+// Tarjeta con foto si toca; si falla, la tarjeta normal (mejor publicar sin foto que no publicar)
+async function card(post: Post, withPhoto: boolean): Promise<Uint8Array> {
+  if (withPhoto) {
+    try {
+      const photo = await pickPhoto();
+      console.log(`📷 Foto: ${photo.name}`);
+      return await renderPhotoCard(post.hook, post.subtitle, photo.data);
+    } catch (e) { console.error("⚠ Sin foto, uso la tarjeta normal:", (e as Error).message); }
+  }
+  return renderCard(post.hook);
+}
+
 async function main() {
   checkConfig();
   const state = await readState();
@@ -179,7 +194,7 @@ async function main() {
     try {
       const post = await generate(topic, previousHooks(state.history, topic));
       const file = `media/${date}-${i + 1}.png`;
-      await Bun.write(file, await renderCard(post.hook));
+      await Bun.write(file, await card(post, i + 1 === PHOTO_POST));
       console.log({ ...post, image: file });
       posts.push({ post, file, topic });
     } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); }
