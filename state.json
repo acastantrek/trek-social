@@ -1,5 +1,5 @@
 {
-  "nextTopic": 5,
+  "nextTopic": 7,
   "history": [
     {
       "date": "2026-10-06",
@@ -20,6 +20,16 @@
       "date": "2026-10-07",
       "topic": "tareas repetitivas de oficina que hoy se pueden automatizar en una semana",
       "hook": "Lo que tu equipo copia a mano, ya no"
+    },
+    {
+      "date": "2026-10-11",
+      "topic": "IA aplicada a atención al cliente sin perder el trato humano",
+      "hook": "La IA atiende. Tu equipo cuida."
+    },
+    {
+      "date": "2026-10-11",
+      "topic": "por qué tus datos importan más que el modelo de IA que elijas",
+      "hook": "Tu IA es tan buena como tus datos"
     }
   ]
 }
