@@ -13,7 +13,7 @@ const DRY_RUN = env.DRY_RUN === "1";
 const SHARE_NOW = env.SHARE_NOW === "1"; // publica al momento en vez de encolar
 const POSTS_PER_RUN = Number(env.POSTS_PER_RUN || 3); // Buffer Free: máx. 10 en cola por canal
 const MODEL = env.CLAUDE_MODEL ?? "sonnet";
-const PHOTO_POST = 3; // el 3.º de la tanda (viernes con L-X-V) lleva foto de personas de assets/personas/
+const PHOTO_POST = 1; // el 1.º de la tanda (lunes con L-X-V) lleva foto de personas de assets/personas/
 
 // Fallar antes de gastar cuota de Claude o subir imágenes que no se van a usar
 function checkConfig() {

@@ -1,4 +1,4 @@
-// Fotos de personas para el post del viernes: las que haya en assets/personas/ (jpg/png, descargadas a mano
+// Fotos de personas para el post del lunes: las que haya en assets/personas/ (jpg/png, descargadas a mano
 // de Unsplash, cuya licencia permite uso comercial). Rota una por semana, así no se repiten hasta acabar la carpeta.
 import { readdirSync } from "node:fs";
 

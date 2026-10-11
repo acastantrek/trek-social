@@ -46,7 +46,7 @@ export async function renderCard(hook: string): Promise<Uint8Array> {
   return new Resvg(svg, { fitTo: { mode: "width", value: W } }).render().asPng();
 }
 
-// Variante clara con foto de personas de fondo (post del viernes), al estilo de los anuncios de la web.
+// Variante clara con foto de personas de fondo (post del lunes), al estilo de los anuncios de la web.
 // La última palabra del titular va en azul.
 export async function renderPhotoCard(hook: string, subtitle: string, photo: Uint8Array): Promise<Uint8Array> {
   const size = hook.length <= 24 ? 108 : hook.length <= 36 ? 92 : 80;
