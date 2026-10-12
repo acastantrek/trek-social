@@ -1,5 +1,5 @@
 {
-  "nextTopic": 7,
+  "nextTopic": 10,
   "history": [
     {
       "date": "2026-10-06",
@@ -30,6 +30,21 @@
       "date": "2026-10-11",
       "topic": "por qué tus datos importan más que el modelo de IA que elijas",
       "hook": "Tu IA es tan buena como tus datos"
+    },
+    {
+      "date": "2026-10-12",
+      "topic": "checklist antes de contratar una consultora de IA",
+      "hook": "Antes de firmar con una consultora de IA"
+    },
+    {
+      "date": "2026-10-12",
+      "topic": "automatizar informes y reporting con IA",
+      "hook": "El informe del lunes ya se escribe solo"
+    },
+    {
+      "date": "2026-10-12",
+      "topic": "mitos sobre la IA en empresas B2B",
+      "hook": "No necesitas un megaproyecto de IA"
     }
   ]
 }
