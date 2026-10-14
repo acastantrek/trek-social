@@ -56,16 +56,16 @@ const TOPICS = [
 ];
 
 // Solo avanza cuando se publica de verdad, así los dry runs y los runs manuales no repiten ni saltan temas.
-// `history` guarda los titulares publicados para que Claude no repita enfoques.
+// `history` guarda los titulares publicados para que Claude no repita enfoques; `lastPhoto`, la última foto de personas usada.
 const STATE_FILE = "state.json";
 const HISTORY_SIZE = 60;
 type Published = { date: string; topic: string; hook: string };
-type State = { nextTopic: number; history: Published[] };
+type State = { nextTopic: number; history: Published[]; lastPhoto?: string };
 
 async function readState(): Promise<State> {
   const f = Bun.file(STATE_FILE);
   const s = (await f.exists()) ? await f.json() : {};
-  return { nextTopic: s.nextTopic ?? 0, history: s.history ?? [] };
+  return { nextTopic: s.nextTopic ?? 0, history: s.history ?? [], lastPhoto: s.lastPhoto };
 }
 
 // Titulares anteriores del mismo tema + los más recientes de cualquier tema
@@ -168,15 +168,16 @@ async function generate(topic: string, avoid: string[]): Promise<Post> {
 }
 
 // Tarjeta con foto si toca; si falla, la tarjeta normal (mejor publicar sin foto que no publicar)
-async function card(post: Post, withPhoto: boolean): Promise<Uint8Array> {
+// Devuelve también el nombre de la foto usada, para guardarlo en state.json
+async function card(post: Post, withPhoto: boolean, lastPhoto?: string): Promise<{ png: Uint8Array; photo?: string }> {
   if (withPhoto) {
     try {
-      const photo = await pickPhoto();
+      const photo = await pickPhoto(lastPhoto);
       console.log(`📷 Foto: ${photo.name}`);
-      return await renderPhotoCard(post.hook, post.subtitle, photo.data);
+      return { png: await renderPhotoCard(post.hook, post.subtitle, photo.data), photo: photo.name };
     } catch (e) { console.error("⚠ Sin foto, uso la tarjeta normal:", (e as Error).message); }
   }
-  return renderCard(post.hook);
+  return { png: await renderCard(post.hook) };
 }
 
 async function main() {
@@ -185,6 +186,7 @@ async function main() {
   const topics = pickTopics(state, POSTS_PER_RUN);
   const date = env.RUN_DATE || new Date().toISOString().slice(0, 10); // RUN_DATE lo fija el workflow
   let failures = 0;
+  let lastPhoto = state.lastPhoto;
 
   // 1) Generar textos e imágenes
   const posts: { post: Post; file: string; topic: string }[] = [];
@@ -194,7 +196,9 @@ async function main() {
     try {
       const post = await generate(topic, previousHooks(state.history, topic));
       const file = `media/${date}-${i + 1}.png`;
-      await Bun.write(file, await card(post, i + 1 === PHOTO_POST));
+      const { png, photo } = await card(post, i + 1 === PHOTO_POST, state.lastPhoto);
+      await Bun.write(file, png);
+      if (photo) lastPhoto = photo;
       console.log({ ...post, image: file });
       posts.push({ post, file, topic });
     } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); }
@@ -209,6 +213,7 @@ async function main() {
   const next: State = {
     nextTopic: (state.nextTopic + topics.length) % TOPICS.length,
     history: [...state.history, ...posts.map(p => ({ date, topic: p.topic, hook: p.post.hook }))].slice(-HISTORY_SIZE),
+    lastPhoto,
   };
   await Bun.write(STATE_FILE, JSON.stringify(next, null, 2) + "\n");
   const sha = pushImages(posts.map(p => p.file));
