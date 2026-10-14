@@ -1,5 +1,5 @@
 {
-  "nextTopic": 10,
+  "nextTopic": 0,
   "history": [
     {
       "date": "2026-10-06",
@@ -46,6 +46,5 @@
       "topic": "mitos sobre la IA en empresas B2B",
       "hook": "No necesitas un megaproyecto de IA"
     }
-  ],
-  "lastPhoto": "unsplash-1681949103006-70066fb25dfe.jpg"
+  ]
 }

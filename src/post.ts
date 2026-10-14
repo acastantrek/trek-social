@@ -1,4 +1,4 @@
-// bun run post   → genera N posts con Claude y los mete en la cola de Buffer (IG + LinkedIn)
+// bun run post   → genera N posts con Claude y los programa en Buffer (IG + LinkedIn) para L-X-V de la semana siguiente
 // bun run dry    → solo genera y muestra, no publica nada
 // Claude se invoca vía Claude Code CLI (`claude -p`) con tu suscripción:
 //   en local usa tu sesión; en CI, el secret CLAUDE_CODE_OAUTH_TOKEN (sale de `claude setup-token`).
@@ -10,10 +10,49 @@ import { pickPhoto } from "./photos";
 
 const env = process.env;
 const DRY_RUN = env.DRY_RUN === "1";
-const SHARE_NOW = env.SHARE_NOW === "1"; // publica al momento en vez de encolar
+const SHARE_NOW = env.SHARE_NOW === "1"; // publica al momento en vez de programar
+const SCHEDULED = env.SCHEDULED === "1"; // lanzado por el cron (no a mano)
 const POSTS_PER_RUN = Number(env.POSTS_PER_RUN || 3); // Buffer Free: máx. 10 en cola por canal
 const MODEL = env.CLAUDE_MODEL ?? "sonnet";
-const PHOTO_POST = 1; // el 1.º de la tanda (lunes con L-X-V) lleva foto de personas de assets/personas/
+const PHOTO_POST = 1; // el 1.º de la tanda (el del lunes) lleva foto de personas de assets/personas/
+
+// ── Calendario: cada post se programa a una hora fija de Madrid, sin depender de la cola de Buffer ──
+const TZ = "Europe/Madrid";
+const RUN_HOUR = 15;          // el cron se lanza a las 13:00 y 14:00 UTC; solo sigue el que cae a partir de las 15:00 en Madrid
+const POST_HOUR = 9;          // hora de publicación
+const POST_DAYS = [0, 2, 4];  // L-X-V, en días desde el lunes
+
+function madrid(d = new Date()) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", weekday: "short", hourCycle: "h23" })
+      .formatToParts(d).map(x => [x.type, x.value]),
+  );
+  return { date: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour), weekday: p.weekday as string };
+}
+
+function addDays(date: string, n: number) {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Lunes siguiente a `date` (si es lunes, el de la semana que viene)
+function nextMonday(date: string) {
+  const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return addDays(date, (8 - dow) % 7 || 7);
+}
+
+// Hora de Madrid → instante UTC, teniendo en cuenta el cambio de hora
+function madridToUTC(date: string, hour: number) {
+  const guess = new Date(`${date}T${String(hour).padStart(2, "0")}:00:00Z`);
+  return new Date(guess.getTime() - (madrid(guess).hour - hour) * 3600_000);
+}
+
+// Post i → L, X, V de la semana `monday` (si hay más de 3, siguen la semana siguiente)
+function slot(monday: string, i: number) {
+  const day = addDays(monday, POST_DAYS[i % POST_DAYS.length] + 7 * Math.floor(i / POST_DAYS.length));
+  return madridToUTC(day, POST_HOUR).toISOString();
+}
 
 // Fallar antes de gastar cuota de Claude o subir imágenes que no se van a usar
 function checkConfig() {
@@ -56,16 +95,17 @@ const TOPICS = [
 ];
 
 // Solo avanza cuando se publica de verdad, así los dry runs y los runs manuales no repiten ni saltan temas.
-// `history` guarda los titulares publicados para que Claude no repita enfoques; `lastPhoto`, la última foto de personas usada.
+// `history` guarda los titulares publicados para que Claude no repita enfoques; `lastPhoto`, la última foto de personas usada;
+// `week`, el lunes de la última semana programada (evita programar dos tandas para la misma semana).
 const STATE_FILE = "state.json";
 const HISTORY_SIZE = 60;
 type Published = { date: string; topic: string; hook: string };
-type State = { nextTopic: number; history: Published[]; lastPhoto?: string };
+type State = { nextTopic: number; history: Published[]; lastPhoto?: string; week?: string };
 
 async function readState(): Promise<State> {
   const f = Bun.file(STATE_FILE);
   const s = (await f.exists()) ? await f.json() : {};
-  return { nextTopic: s.nextTopic ?? 0, history: s.history ?? [], lastPhoto: s.lastPhoto };
+  return { nextTopic: s.nextTopic ?? 0, history: s.history ?? [], lastPhoto: s.lastPhoto, week: s.week };
 }
 
 // Titulares anteriores del mismo tema + los más recientes de cualquier tema
@@ -183,16 +223,32 @@ async function card(post: Post, withPhoto: boolean, lastPhoto?: string): Promise
 async function main() {
   checkConfig();
   const state = await readState();
+  const now = madrid();
+  const monday = nextMonday(now.date);
+
+  // El cron se lanza dos veces (verano/invierno): solo sigue el que cae a partir de las 15:00 y si la semana está sin programar
+  if (SCHEDULED && now.weekday === "Fri" && now.hour < RUN_HOUR) {
+    console.log(`Son las ${now.hour}:00 en Madrid; se espera al cron de las ${RUN_HOUR}:00.`);
+    return;
+  }
+  if (!DRY_RUN && !SHARE_NOW && state.week === monday) {
+    const msg = `La semana del ${monday} ya está programada (state.json → week).`;
+    if (SCHEDULED) { console.log(msg); return; }
+    console.error(`✘ ${msg} Si la has borrado en Buffer, quita "week" de state.json y vuelve a lanzarlo.`);
+    process.exit(1);
+  }
+
   const topics = pickTopics(state, POSTS_PER_RUN);
   const date = env.RUN_DATE || new Date().toISOString().slice(0, 10); // RUN_DATE lo fija el workflow
   let failures = 0;
   let lastPhoto = state.lastPhoto;
 
   // 1) Generar textos e imágenes
-  const posts: { post: Post; file: string; topic: string }[] = [];
+  const posts: { post: Post; file: string; topic: string; dueAt: string }[] = [];
   for (const [i, topic] of topics.entries()) {
+    const dueAt = slot(monday, i);
     console.log(`
-━━ Post ${i + 1}/${topics.length}: ${topic}`);
+━━ Post ${i + 1}/${topics.length} (${SHARE_NOW ? "ahora" : dueAt}): ${topic}`);
     try {
       const post = await generate(topic, previousHooks(state.history, topic));
       const file = `media/${date}-${i + 1}.png`;
@@ -200,7 +256,7 @@ async function main() {
       await Bun.write(file, png);
       if (photo) lastPhoto = photo;
       console.log({ ...post, image: file });
-      posts.push({ post, file, topic });
+      posts.push({ post, file, topic, dueAt });
     } catch (e) { failures++; console.error("✘ Generación:", (e as Error).message); }
   }
 
@@ -214,14 +270,15 @@ async function main() {
     nextTopic: (state.nextTopic + topics.length) % TOPICS.length,
     history: [...state.history, ...posts.map(p => ({ date, topic: p.topic, hook: p.post.hook }))].slice(-HISTORY_SIZE),
     lastPhoto,
+    week: SHARE_NOW ? state.week : monday,
   };
   await Bun.write(STATE_FILE, JSON.stringify(next, null, 2) + "\n");
   const sha = pushImages(posts.map(p => p.file));
   console.log(`
 ✔ Imágenes subidas (commit ${sha.slice(0, 7)})`);
 
-  // 3) Encolar en Buffer
-  for (const { post, file } of posts) {
+  // 3) Programar en Buffer a la hora fija de cada post, igual en las dos redes
+  for (const { post, file, dueAt } of posts) {
     const img = `https://raw.githubusercontent.com/${REPO}/${sha}/${file}`;
     console.log(`
 ━━ ${post.hook}
@@ -230,15 +287,15 @@ async function main() {
 
     if (env.BUFFER_LI_CHANNEL) {
       try {
-        const r = await createPost({ channelId: env.BUFFER_LI_CHANNEL, text: post.linkedin, imageUrl: img, shareNow: SHARE_NOW });
-        console.log(`✔ LinkedIn ${SHARE_NOW ? "publicado" : "en cola"} → ${r.dueAt}`);
+        const r = await createPost({ channelId: env.BUFFER_LI_CHANNEL.trim(), text: post.linkedin, imageUrl: img, shareNow: SHARE_NOW, dueAt });
+        console.log(`✔ LinkedIn ${SHARE_NOW ? "publicado" : "programado"} → ${r.dueAt}`);
       } catch (e) { failures++; console.error("✘ LinkedIn:", (e as Error).message); }
     }
 
     if (env.BUFFER_IG_CHANNEL) {
       try {
-        const r = await createPost({ channelId: env.BUFFER_IG_CHANNEL, text: post.instagram, imageUrl: img, instagram: true, shareNow: SHARE_NOW });
-        console.log(`✔ Instagram ${SHARE_NOW ? "publicado" : "en cola"} → ${r.dueAt}`);
+        const r = await createPost({ channelId: env.BUFFER_IG_CHANNEL.trim(), text: post.instagram, imageUrl: img, instagram: true, shareNow: SHARE_NOW, dueAt });
+        console.log(`✔ Instagram ${SHARE_NOW ? "publicado" : "programado"} → ${r.dueAt}`);
       } catch (e) { failures++; console.error("✘ Instagram:", (e as Error).message); }
     }
   }

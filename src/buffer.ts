@@ -22,15 +22,17 @@ type CreatePostInput = {
   imageUrl?: string;
   instagram?: boolean;
   shareNow?: boolean;
+  dueAt?: string; // ISO; programa el post a esa hora exacta en vez de usar la cola
 };
 
-export async function createPost({ channelId, text, imageUrl, instagram, shareNow }: CreatePostInput) {
+export async function createPost({ channelId, text, imageUrl, instagram, shareNow, dueAt }: CreatePostInput) {
   const input: Record<string, unknown> = {
     channelId,
     text,
     schedulingType: "automatic",
-    mode: shareNow ? "shareNow" : "addToQueue", // addToQueue usa los horarios que configures en Buffer
+    mode: shareNow ? "shareNow" : dueAt ? "customScheduled" : "addToQueue", // addToQueue usa los horarios de Buffer
   };
+  if (dueAt && !shareNow) input.dueAt = dueAt;
   if (imageUrl) input.assets = [{ image: { url: imageUrl } }];
   if (instagram) {
     input.metadata = { instagram: { type: "post", shouldShareToFeed: true } };
