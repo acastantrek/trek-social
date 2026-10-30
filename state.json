@@ -1,5 +1,5 @@
 {
-  "nextTopic": 6,
+  "nextTopic": 9,
   "history": [
     {
       "date": "2026-10-06",
@@ -75,8 +75,23 @@
       "date": "2026-10-23",
       "topic": "IA aplicada a atención al cliente sin perder el trato humano",
       "hook": "Tu cliente enfadado no quiere un bot"
+    },
+    {
+      "date": "2026-10-30",
+      "topic": "por qué tus datos importan más que el modelo de IA que elijas",
+      "hook": "Tres Excel, tres precios distintos"
+    },
+    {
+      "date": "2026-10-30",
+      "topic": "checklist antes de contratar una consultora de IA",
+      "hook": "Pregunta qué pasa en el mes cuatro"
+    },
+    {
+      "date": "2026-10-30",
+      "topic": "automatizar informes y reporting con IA",
+      "hook": "Tres Excel, tres cifras de ventas distintas"
     }
   ],
-  "lastPhoto": "unsplash-1545184180-25d471fe75eb.jpg",
-  "week": "2026-10-26"
+  "lastPhoto": "unsplash-1579389083395-4507e98b5e67.jpg",
+  "week": "2026-11-02"
 }
