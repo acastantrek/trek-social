@@ -1,5 +1,5 @@
 {
-  "nextTopic": 12,
+  "nextTopic": 15,
   "history": [
     {
       "date": "2026-10-06",
@@ -105,8 +105,23 @@
       "date": "2026-11-06",
       "topic": "IA y protección de datos (RGPD): qué tener en cuenta antes de empezar",
       "hook": "¿Dónde acaban los datos que pegas?"
+    },
+    {
+      "date": "2026-11-13",
+      "topic": "automatizar la gestión de facturas y documentos con IA",
+      "hook": "La factura que llegó por WhatsApp"
+    },
+    {
+      "date": "2026-11-13",
+      "topic": "cómo formar a tu equipo para trabajar con IA sin resistencias",
+      "hook": "Empieza por el que más desconfía"
+    },
+    {
+      "date": "2026-11-13",
+      "topic": "prueba piloto de IA: cómo plantearla para que salga bien",
+      "hook": "Antes del piloto, escribe qué es aprobar"
     }
   ],
-  "lastPhoto": "unsplash-1580894899378-92e56886cd4d.jpg",
-  "week": "2026-11-09"
+  "lastPhoto": "unsplash-1581093192442-337ba327eb2b.jpg",
+  "week": "2026-11-16"
 }
