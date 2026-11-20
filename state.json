@@ -1,5 +1,5 @@
 {
-  "nextTopic": 15,
+  "nextTopic": 18,
   "history": [
     {
       "date": "2026-10-06",
@@ -120,8 +120,23 @@
       "date": "2026-11-13",
       "topic": "prueba piloto de IA: cómo plantearla para que salga bien",
       "hook": "Antes del piloto, escribe qué es aprobar"
+    },
+    {
+      "date": "2026-11-20",
+      "topic": "chatbots que funcionan vs. chatbots que frustran al cliente",
+      "hook": "Un chatbot sin salida es una puerta cerrada"
+    },
+    {
+      "date": "2026-11-20",
+      "topic": "integrar la IA con tu CRM y tu ERP sin cambiar de herramientas",
+      "hook": "Tu comercial no sabe que ese cliente debe"
+    },
+    {
+      "date": "2026-11-20",
+      "topic": "cuánto cuesta de verdad un proyecto de IA en una pyme",
+      "hook": "La licencia es lo más barato del proyecto"
     }
   ],
-  "lastPhoto": "unsplash-1581093192442-337ba327eb2b.jpg",
-  "week": "2026-11-16"
+  "lastPhoto": "unsplash-1603195827187-459ab02554a0.jpg",
+  "week": "2026-11-23"
 }
